@@ -111,6 +111,8 @@ public final class ProbeRunner {
                             Math.max(1, config.extractParallelChunkCount),
                             Math.max(1, config.extractParallelStructureJobs),
                             Math.max(10, config.extractTimeoutSec),
+                            Math.max(2_000, config.extractStartCommandTimeoutMs),
+                            Math.max(2_000, config.extractStatusReadTimeoutMs),
                             config.maxStructures,
                             resumeStructures,
                             new ProgressPrinter.ProgressListener() {

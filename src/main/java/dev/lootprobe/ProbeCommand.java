@@ -98,6 +98,12 @@ public final class ProbeCommand implements Callable<Integer> {
     @Option(names = "--extract-timeout-sec", defaultValue = "90", description = "Per-structure extraction timeout in seconds (slow ones are skipped)")
     private int extractTimeoutSec;
 
+    @Option(names = "--extract-start-timeout-ms", defaultValue = "8000", description = "RCON timeout for extract-start command response in milliseconds")
+    private int extractStartTimeoutMs;
+
+    @Option(names = "--extract-status-timeout-ms", defaultValue = "12000", description = "RCON timeout for extract-status polling response in milliseconds")
+    private int extractStatusTimeoutMs;
+
     @Option(names = "--max-structures", description = "Optional cap on number of discovered structures to extract (nearest first)")
     private Integer maxStructures;
 
@@ -138,6 +144,8 @@ public final class ProbeCommand implements Callable<Integer> {
         config.extractParallelChunkCount = extractParallelChunkCount;
         config.extractParallelStructureJobs = extractParallelStructureJobs;
         config.extractTimeoutSec = extractTimeoutSec;
+        config.extractStartCommandTimeoutMs = extractStartTimeoutMs;
+        config.extractStatusReadTimeoutMs = extractStatusTimeoutMs;
         config.maxStructures = maxStructures;
         config.ultraLean = ultraLean;
 

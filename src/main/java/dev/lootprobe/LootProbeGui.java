@@ -116,6 +116,8 @@ public final class LootProbeGui {
     private final JSlider extractParallelChunkCount = slider(1, 12, 4);
     private final JSlider extractParallelStructures = slider(1, 8, 1);
     private final JTextField extractTimeout = new JTextField("90");
+    private final JTextField extractStartTimeoutMs = new JTextField("8000");
+    private final JTextField extractStatusTimeoutMs = new JTextField("12000");
     private final JTextField maxStructures = new JTextField();
     private final JTextField pluginJar = new JTextField();
     private final JCheckBox cubiomesMap = new JCheckBox("Use Cubiomes biome map", true);
@@ -363,6 +365,8 @@ public final class LootProbeGui {
         addScanRow(form, row++, "Parallel Chunk Count", extractParallelChunkCount);
         addScanRow(form, row++, "Parallel Structures", extractParallelStructures);
         addScanRow(form, row++, "Extract Timeout (sec)", extractTimeout);
+        addScanRow(form, row++, "Extract Start Timeout (ms)", extractStartTimeoutMs);
+        addScanRow(form, row++, "Extract Status Timeout (ms)", extractStatusTimeoutMs);
         addScanRow(form, row++, "Max Structures (optional)", maxStructures);
         addScanRow(form, row++, "Auto Datapack Structures", autoDatapackStructures);
         addScanRow(form, row++, "Cubiomes Biome Map", cubiomesMap);
@@ -625,6 +629,8 @@ public final class LootProbeGui {
             config.extractParallelStructureJobs = 1;
         }
         config.extractTimeoutSec = Integer.parseInt(requireText(extractTimeout, "Extract Timeout"));
+        config.extractStartCommandTimeoutMs = Integer.parseInt(requireText(extractStartTimeoutMs, "Extract Start Timeout"));
+        config.extractStatusReadTimeoutMs = Integer.parseInt(requireText(extractStatusTimeoutMs, "Extract Status Timeout"));
         config.maxStructures = blankToNullInt(maxStructures.getText());
         config.paperPluginJar = Path.of(requireText(pluginJar, "Paper Plugin Jar"));
         config.autoDatapackStructures = autoDatapackStructures.isSelected();
@@ -859,6 +865,8 @@ public final class LootProbeGui {
         extractParallelChunkCount.setToolTipText("Max in-flight chunk loads per structure (1-12).");
         extractParallelStructures.setToolTipText("How many structure extraction jobs to run in parallel (1-8).");
         extractTimeout.setToolTipText("Per-structure extraction timeout in seconds.");
+        extractStartTimeoutMs.setToolTipText("RCON timeout for extract-start replies (ms). Increasing can help when using many datapack structures.");
+        extractStatusTimeoutMs.setToolTipText("RCON timeout for extract-status polling (ms). Increase for very large datapack structure sets to avoid timeout failures.");
         maxStructures.setToolTipText("Optional cap on number of discovered structures to extract.");
         autoDatapackStructures.setToolTipText("Also include structures defined by loaded datapacks.");
         ultraLean.setToolTipText("Apply runtime gamerule/perf settings for faster probing.");
@@ -1682,6 +1690,8 @@ public final class LootProbeGui {
             s.extractParallelChunkCount = String.valueOf(extractParallelChunkCount.getValue());
             s.extractParallelStructures = String.valueOf(extractParallelStructures.getValue());
             s.extractTimeout = extractTimeout.getText();
+            s.extractStartTimeoutMs = extractStartTimeoutMs.getText();
+            s.extractStatusTimeoutMs = extractStatusTimeoutMs.getText();
             s.maxStructures = maxStructures.getText();
             s.pluginJar = pluginJar.getText();
             s.cubiomesMap = cubiomesMap.isSelected();
@@ -1733,6 +1743,8 @@ public final class LootProbeGui {
             if (s.extractParallelStructures != null) extractParallelStructures.setValue(parseSliderSetting(s.extractParallelStructures, extractParallelStructures));
             updateParallelControlsEnabled();
             if (s.extractTimeout != null) extractTimeout.setText(s.extractTimeout);
+            if (s.extractStartTimeoutMs != null) extractStartTimeoutMs.setText(s.extractStartTimeoutMs);
+            if (s.extractStatusTimeoutMs != null) extractStatusTimeoutMs.setText(s.extractStatusTimeoutMs);
             if (s.maxStructures != null) maxStructures.setText(s.maxStructures);
             if (s.pluginJar != null) pluginJar.setText(s.pluginJar);
             if (s.cubiomesMap != null) cubiomesMap.setSelected(s.cubiomesMap);
@@ -2867,6 +2879,8 @@ public final class LootProbeGui {
         public String extractParallelChunkCount;
         public String extractParallelStructures;
         public String extractTimeout;
+        public String extractStartTimeoutMs;
+        public String extractStatusTimeoutMs;
         public String maxStructures;
         public String pluginJar;
         public Boolean cubiomesMap;

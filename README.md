@@ -228,6 +228,8 @@ Performance controls:
 - `--extract-parallel-chunk-count` (parallel chunk-load depth per structure worker; higher is faster, lower can improve consistency)
 - `--extract-parallel-structures` (number of structure workers running simultaneously; higher is faster, lower can improve consistency)
 - `--extract-timeout-sec`
+- `--extract-start-timeout-ms` (RCON timeout for extract-start replies; increase for huge datapack structure sets)
+- `--extract-status-timeout-ms` (RCON timeout for extract-status polling; increase for huge datapack structure sets)
 - `--max-structures`
 - `--ultra-lean=true|false`
 

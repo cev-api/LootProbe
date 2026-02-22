@@ -32,6 +32,8 @@ public final class ProbeConfig {
     public int extractParallelChunkCount = 4;
     public int extractParallelStructureJobs = 1;
     public int extractTimeoutSec = 90;
+    public int extractStartCommandTimeoutMs = 8_000;
+    public int extractStatusReadTimeoutMs = 12_000;
     public Integer maxStructures;
     public boolean ultraLean = true;
     public boolean reuseServerIfPossible = false;

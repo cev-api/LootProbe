@@ -42,6 +42,8 @@ public final class WorldChestScanner {
             int extractParallelChunkCount,
             int extractParallelStructureJobs,
             int extractTimeoutSec,
+            int extractStartCommandTimeoutMs,
+            int extractStatusReadTimeoutMs,
             Integer maxStructures
     ) throws Exception {
         return scan(
@@ -59,6 +61,8 @@ public final class WorldChestScanner {
                 extractParallelChunkCount,
                 extractParallelStructureJobs,
                 extractTimeoutSec,
+                extractStartCommandTimeoutMs,
+                extractStatusReadTimeoutMs,
                 maxStructures,
                 List.of(),
                 null
@@ -80,6 +84,8 @@ public final class WorldChestScanner {
             int extractParallelChunkCount,
             int extractParallelStructureJobs,
             int extractTimeoutSec,
+            int extractStartCommandTimeoutMs,
+            int extractStatusReadTimeoutMs,
             Integer maxStructures,
             List<ScannedStructure> resumeStructures,
             ProgressPrinter.ProgressListener progressListener
@@ -209,6 +215,8 @@ public final class WorldChestScanner {
         final int maxAttempts = 3;
         final int maxParallelStructures = Math.min(8, Math.max(1, extractParallelStructureJobs));
         final int effectiveParallelChunkCount = Math.min(12, Math.max(1, extractParallelChunkCount));
+        final int effectiveExtractStartTimeoutMs = Math.max(2_000, extractStartCommandTimeoutMs);
+        final int effectiveExtractStatusTimeoutMs = Math.max(2_000, extractStatusReadTimeoutMs);
         for (int attempt = 1; attempt <= maxAttempts && !pending.isEmpty(); attempt++) {
             List<StructureStart> queue = new ArrayList<>(pending);
             List<StructureStart> retryLater = new ArrayList<>();
@@ -225,12 +233,12 @@ public final class WorldChestScanner {
                     Path outFile = pluginDataDir.resolve(token + ".json");
                     Files.deleteIfExists(outFile);
 
-                    int commandTimeoutMs = Math.max(10_000, Math.min(20_000, extractTimeoutSec * 1000));
+                    int commandTimeoutMs = Math.max(15_000, Math.min(300_000, extractTimeoutSec * 1000));
                     String commandSuffix = start.dimension + " " + start.id + " " + start.x + " " + start.z + " "
                             + effectiveChunkRadius + " " + relativeOut + " " + extractParallelChunks + " " + effectiveParallelChunkCount;
                     String response;
                     try {
-                        response = rcon.commandOnce("lootprobe_extract_start " + commandSuffix, 4_000);
+                        response = rcon.commandOnce("lootprobe_extract_start " + commandSuffix, effectiveExtractStartTimeoutMs);
                     } catch (SocketTimeoutException timeout) {
                         upsertTimeout(report, resultIndexByKey, start, "timeout pass " + attempt + "/" + maxAttempts);
                         retryLater.add(start);
@@ -240,7 +248,7 @@ public final class WorldChestScanner {
                         continue;
                     }
                     if (looksUnknownCommand(response)) {
-                        response = rcon.commandOnce("lootprobepaperplugin:lootprobe_extract_start " + commandSuffix, 4_000);
+                        response = rcon.commandOnce("lootprobepaperplugin:lootprobe_extract_start " + commandSuffix, effectiveExtractStartTimeoutMs);
                     }
                     boolean asyncMode = !looksUnknownCommand(response) && parseExtractJobId(response) != null;
                     if (!asyncMode) {
@@ -296,9 +304,19 @@ public final class WorldChestScanner {
                         continue;
                     }
 
-                    String status = rcon.commandOnce("lootprobe_extract_status " + active.jobId, 4_000);
-                    if (looksUnknownCommand(status)) {
-                        status = rcon.commandOnce("lootprobepaperplugin:lootprobe_extract_status " + active.jobId, 4_000);
+                    String status;
+                    try {
+                        status = rcon.commandOnce("lootprobe_extract_status " + active.jobId, effectiveExtractStatusTimeoutMs);
+                        if (looksUnknownCommand(status)) {
+                            status = rcon.commandOnce(
+                                    "lootprobepaperplugin:lootprobe_extract_status " + active.jobId,
+                                    effectiveExtractStatusTimeoutMs
+                            );
+                        }
+                    } catch (SocketTimeoutException timeout) {
+                        // Under heavy worldgen/load, status replies can be delayed.
+                        // Keep polling until the per-job deadline instead of aborting the full scan.
+                        continue;
                     }
                     String normalized = status != null ? status.trim().toLowerCase() : "";
                     if (normalized.startsWith("failed")) {
