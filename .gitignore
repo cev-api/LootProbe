@@ -3,6 +3,7 @@ target/
 .idea/
 *.iml
 probe-result.json
+.lootprobe-gui-settings.json
 
 # Local test/runtime assets (server jars, datapacks, result json, caches, dlls)
 test/

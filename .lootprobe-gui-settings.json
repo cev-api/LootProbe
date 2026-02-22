@@ -1,7 +1,7 @@
 {
   "mcVersion" : "1.21.11",
-  "seed" : "000000000000000",
-  "serverJar" : "",
+  "seed" : "4459326653069887216",
+  "serverJar" : "Z:\\Programmin\\LootTableTest\\test\\server\\paper-1.21.11-111.jar",
   "output" : "probe-result.json",
   "workDir" : "",
   "startupTimeout" : "180",
@@ -17,17 +17,19 @@
   "extractParallelChunkCount" : "12",
   "extractParallelStructures" : "8",
   "extractTimeout" : "90",
+  "extractStartTimeoutMs" : "8000",
+  "extractStatusTimeoutMs" : "12000",
   "maxStructures" : "",
-  "pluginJar" : "",
+  "pluginJar" : "Z:\\Programmin\\LootTableTest\\paper-plugin\\target\\lootprobe-paper-plugin-0.1.0.jar",
   "cubiomesMap" : true,
   "cubiomesStructures" : false,
   "cubiomesDllPath" : null,
   "cubiomesBridgePath" : null,
   "mapMaxZoomOut" : "15000",
   "mapIconScale" : "1.0",
-  "datapack" : "",
+  "datapack" : "Z:\\Programmin\\LootTableTest\\downloads\\datapacks\\Terralith_v2.5.14_1.21.11.zip",
   "autoDatapackStructures" : false,
   "ultraLean" : true,
-  "selectedStructures" : "minecraft:overworld|minecraft:ancient_city",
-  "datapacks" : [ ]
+  "selectedStructures" : "minecraft:overworld|terralith:desert_outpost\nminecraft:overworld|terralith:fortified_desert_village\nminecraft:overworld|terralith:fortified_village\nminecraft:overworld|terralith:glacial_hut\nminecraft:overworld|terralith:igloo\nminecraft:overworld|terralith:mage_complex\nminecraft:overworld|terralith:mage_tower\nminecraft:overworld|terralith:mage_tower_autumn\nminecraft:overworld|terralith:mage_tower_spring\nminecraft:overworld|terralith:mage_tower_summer\nminecraft:overworld|terralith:mage_tower_winter\nminecraft:overworld|terralith:rubble_desert\nminecraft:overworld|terralith:rubble_forest\nminecraft:overworld|terralith:rubble_jungle\nminecraft:overworld|terralith:rubble_mesa\nminecraft:overworld|terralith:rubble_mountain\nminecraft:overworld|terralith:rubble_taiga\nminecraft:overworld|terralith:spire\nminecraft:overworld|terralith:underground/frosted_dungeon\nminecraft:overworld|terralith:underground/giant_bee_hive\nminecraft:overworld|terralith:underground/mining_outpost\nminecraft:overworld|terralith:underground/oak_cabin\nminecraft:overworld|terralith:underground/old_refinery\nminecraft:overworld|terralith:underground/sunken_tower\nminecraft:overworld|terralith:underground/witch_hut\nminecraft:overworld|terralith:underground_cabin\nminecraft:overworld|terralith:valley_lodge\nminecraft:overworld|terralith:witch_hut",
+  "datapacks" : [ "Z:\\Programmin\\LootTableTest\\downloads\\datapacks\\Terralith_v2.5.14_1.21.11.zip" ]
 }

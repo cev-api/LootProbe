@@ -47,6 +47,7 @@ public final class LootProbePaperPlugin extends JavaPlugin implements CommandExe
     private static final int PARALLEL_JOB_DEFAULT_IN_FLIGHT_CHUNKS = 4;
     private static final int PARALLEL_JOB_MAX_IN_FLIGHT_CHUNKS = 12;
     private static final int ZERO_SEED_LOG_EXAMPLE_LIMIT = 12;
+    private static final int UNSUPPORTED_CONTEXT_LOG_EXAMPLE_LIMIT = 12;
     private static final int POST_LOAD_SETTLE_TICKS = 2;
     private final ObjectMapper mapper = new ObjectMapper().enable(SerializationFeature.INDENT_OUTPUT);
     private final Map<String, ExtractJob> jobs = new ConcurrentHashMap<>();
@@ -319,7 +320,7 @@ public final class LootProbePaperPlugin extends JavaPlugin implements CommandExe
             Inventory inventory = container.getInventory();
             readInventoryItems(inventory, chest.items);
             if (chest.items.isEmpty() && state instanceof Lootable lootable) {
-                populateFromLootTable(lootable, inventory, loc, chest);
+                populateFromLootTable(job, lootable, inventory, loc, chest);
             }
             job.dump.chests.add(chest);
         }
@@ -346,11 +347,25 @@ public final class LootProbePaperPlugin extends JavaPlugin implements CommandExe
                     + " chests=" + job.dump.chests.size()
                     + " items=" + itemCount
                     + " zeroSeedLootTables=" + job.zeroSeedLootTableCount
+                    + " skippedContextLootTables=" + job.unsupportedContextChestCount
                     + " out=" + outFile.getAbsolutePath()
                     + " tookMs=" + took);
             if (!job.zeroSeedExamples.isEmpty()) {
                 for (String sample : job.zeroSeedExamples) {
                     getLogger().info("lootprobe_extract zero_seed_example structure=" + job.structureId + " chest=" + sample);
+                }
+            }
+            if (job.unsupportedContextChestCount > 0) {
+                getLogger().warning("lootprobe_extract skipped_context_summary structure=" + job.structureId
+                        + " chests=" + job.unsupportedContextChestCount
+                        + " uniqueLootTables=" + job.unsupportedContextByTable.size());
+                job.unsupportedContextByTable.entrySet().stream()
+                        .sorted((a, b) -> Integer.compare(b.getValue(), a.getValue()))
+                        .limit(8)
+                        .forEach(e -> getLogger().warning("lootprobe_extract skipped_context_table structure="
+                                + job.structureId + " table=" + e.getKey() + " count=" + e.getValue()));
+                for (String sample : job.unsupportedContextExamples) {
+                    getLogger().warning("lootprobe_extract skipped_context_example structure=" + job.structureId + " " + sample);
                 }
             }
         } catch (Exception e) {
@@ -499,7 +514,7 @@ public final class LootProbePaperPlugin extends JavaPlugin implements CommandExe
         return dump;
     }
 
-    private void populateFromLootTable(Lootable lootable, Inventory inventory, Location loc, ChestData chest) {
+    private void populateFromLootTable(ExtractJob job, Lootable lootable, Inventory inventory, Location loc, ChestData chest) {
         LootTable table = lootable.getLootTable();
         if (table == null) {
             return;
@@ -514,8 +529,27 @@ public final class LootProbePaperPlugin extends JavaPlugin implements CommandExe
             return;
         }
         Random random = new Random(seed);
-        LootContext context = new LootContext.Builder(loc).build();
-        Collection<ItemStack> rolled = table.populateLoot(random, context);
+        Collection<ItemStack> rolled;
+        try {
+            LootContext context = new LootContext.Builder(loc).build();
+            rolled = table.populateLoot(random, context);
+        } catch (IllegalArgumentException ex) {
+            // Some datapack tables require parameters that are not available for generic
+            // chest reconstruction (tool, attacker, damage source, etc). Skip gracefully.
+            chest.rawLootCommandResponse = "loot_context_unsupported:" + ex.getMessage();
+            String tableId = chest.lootTable != null ? chest.lootTable : "<unknown>";
+            job.unsupportedContextChestCount++;
+            job.unsupportedContextByTable.merge(tableId, 1, Integer::sum);
+            if (job.unsupportedContextExamples.size() < UNSUPPORTED_CONTEXT_LOG_EXAMPLE_LIMIT) {
+                String msg = ex.getMessage() != null ? ex.getMessage() : "missing_context";
+                job.unsupportedContextExamples.add("chest=" + chest.x + "," + chest.y + "," + chest.z
+                        + " table=" + tableId + " reason=" + msg);
+            }
+            return;
+        } catch (Throwable ex) {
+            chest.rawLootCommandResponse = "loot_populate_failed:" + ex.getClass().getSimpleName();
+            return;
+        }
         int slot = 0;
         for (ItemStack item : rolled) {
             if (item == null || item.getType() == Material.AIR || item.getAmount() <= 0) {
@@ -672,6 +706,9 @@ public final class LootProbePaperPlugin extends JavaPlugin implements CommandExe
         String error;
         int zeroSeedLootTableCount;
         final List<String> zeroSeedExamples = new ArrayList<>();
+        int unsupportedContextChestCount;
+        final Map<String, Integer> unsupportedContextByTable = new ConcurrentHashMap<>();
+        final List<String> unsupportedContextExamples = new ArrayList<>();
         final PluginStructureDump dump = new PluginStructureDump();
         final ArrayDeque<ChunkCoord> pending = new ArrayDeque<>();
         final List<ChunkCoord> requestedChunks = new ArrayList<>();

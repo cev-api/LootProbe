@@ -333,6 +333,7 @@ Primary sections:
 ## Notes
 
 - Performance and totals vary by seed, version, structure set, and hardware.
+- You may see incongruent containers for your structures, this is because it scans the entire chunk/s that structure is in. So if you see a dispenser in a village its likely because there's a trial chamber underneath it. This will be evident in the dispensers loot table descriptor.
 - The benchmark percentages in this README are project-reported comparison numbers for same-seed/same-area runs.
 - Extraction failures that mention missing plugin, missing plugin channel, or no chest payload usually indicate a bad `--paper-plugin-jar` path or plugin/main version mismatch.
 - Safest setup is: rebuild both modules together, then pass the freshly built plugin jar explicitly via `--paper-plugin-jar`.
