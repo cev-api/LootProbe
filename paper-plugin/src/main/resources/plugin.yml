@@ -1,0 +1,24 @@
+name: LootProbePaperPlugin
+version: 0.1.0
+main: dev.lootprobe.paper.LootProbePaperPlugin
+api-version: "1.21"
+commands:
+  lootprobe_extract:
+    description: Extract chests and loot metadata near a structure center
+    usage: /lootprobe_extract <dimension> <structureId> <centerX> <centerZ> <chunkRadius> <relativeOutputFile> [parallelChunks] [parallelChunkCount]
+    permission: lootprobe.extract
+  lootprobe_extract_start:
+    description: Start async extract job and return job id
+    usage: /lootprobe_extract_start <dimension> <structureId> <centerX> <centerZ> <chunkRadius> <relativeOutputFile> [parallelChunks] [parallelChunkCount]
+    permission: lootprobe.extract
+  lootprobe_extract_status:
+    description: Query async extract job status
+    usage: /lootprobe_extract_status <jobId>
+    permission: lootprobe.extract
+  lootprobe_discover:
+    description: Discover structure starts in bounded radius and write JSON output
+    usage: /lootprobe_discover <dimension> <centerX> <centerZ> <radius> <locateStep> <relativeOutputFile> <structureId...>
+    permission: lootprobe.extract
+permissions:
+  lootprobe.extract:
+    default: op

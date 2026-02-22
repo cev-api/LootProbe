@@ -1,0 +1,30 @@
+plugins {
+    id 'application'
+}
+
+group = 'dev.lootprobe'
+version = '0.1.0'
+
+java {
+    toolchain {
+        languageVersion = JavaLanguageVersion.of(21)
+    }
+}
+
+repositories {
+    mavenCentral()
+}
+
+dependencies {
+    implementation 'info.picocli:picocli:4.7.7'
+    implementation 'com.fasterxml.jackson.core:jackson-databind:2.18.2'
+    implementation 'net.java.dev.jna:jna:5.14.0'
+}
+
+application {
+    mainClass = 'dev.lootprobe.Main'
+}
+
+tasks.withType(JavaCompile).configureEach {
+    options.encoding = 'UTF-8'
+}

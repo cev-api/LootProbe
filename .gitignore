@@ -1,0 +1,17 @@
+target/
+**/target/
+.idea/
+*.iml
+probe-result.json
+
+# Local test/runtime assets (server jars, datapacks, result json, caches, dlls)
+test/
+
+# Local runtime/cache noise
+.lootprobe-cache/
+.tmp-cubiomes/
+debugrun/
+downloads/
+META-INF/
+
+Thumbs.db
