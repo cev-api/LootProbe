@@ -115,6 +115,9 @@ public final class ProbeRunner {
                             Math.max(2_000, config.extractStatusReadTimeoutMs),
                             config.maxStructures,
                             resumeStructures,
+                            config.useCubiomesStructureDiscovery,
+                            config.mcVersion,
+                            config.seed,
                             new ProgressPrinter.ProgressListener() {
                                 @Override
                                 public void onProgress(int current, int total, String label) {
@@ -432,6 +435,7 @@ public final class ProbeRunner {
                 "centerZ=" + config.scanCenterZ,
                 "radius=" + config.scanRadius,
                 "locateStep=" + config.locateStep,
+                "cubiomesDiscovery=" + config.useCubiomesStructureDiscovery,
                 "targets=" + String.join(",", targetKeys),
                 "datapacks=" + String.join(",", datapackKeys)
         ));

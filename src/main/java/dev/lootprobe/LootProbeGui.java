@@ -56,6 +56,7 @@ import java.io.InputStream;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.ArrayList;
+import java.util.Comparator;
 import java.util.HashMap;
 import java.util.LinkedHashMap;
 import java.util.LinkedHashSet;
@@ -121,7 +122,7 @@ public final class LootProbeGui {
     private final JTextField maxStructures = new JTextField();
     private final JTextField pluginJar = new JTextField();
     private final JCheckBox cubiomesMap = new JCheckBox("Use Cubiomes biome map", true);
-    private final JCheckBox cubiomesStructures = new JCheckBox("Use Cubiomes structure preview", false);
+    private final JCheckBox cubiomesStructures = new JCheckBox("Use Cubiomes structure discovery", true);
     private final JTextField mapMaxZoomOut = new JTextField("15000");
     private final JTextField mapIconScale = new JTextField("1.0");
 
@@ -136,6 +137,12 @@ public final class LootProbeGui {
     private final JTextField itemSearch = new JTextField();
     private final JComboBox<String> resultDimensionFilter = new JComboBox<>(new String[]{RESULT_FILTER_ANY});
     private final JComboBox<String> resultStructureFilter = new JComboBox<>(new String[]{RESULT_FILTER_ANY});
+    private final JComboBox<String> resultSort = new JComboBox<>(new String[]{
+            "Spawners ↓, Vaults ↓, Ominous Vaults ↓",
+            "Vaults ↓, Ominous Vaults ↓, Spawners ↓",
+            "Ominous Vaults ↓, Vaults ↓, Spawners ↓",
+            "Chests ↓, Item Stacks ↓"
+    });
     private final DefaultListModel<String> resultStructureModel = new DefaultListModel<>();
     private final JList<String> resultStructureList = new JList<>(resultStructureModel);
     private final DefaultListModel<String> resultChestModel = new DefaultListModel<>();
@@ -225,10 +232,10 @@ public final class LootProbeGui {
         syncScanOverlayToMap();
         syncMapPreviewOptions();
 
-        JPanel left = new JPanel(new BorderLayout(8, 8));
-        left.setBorder(BorderFactory.createEmptyBorder(8, 8, 8, 4));
-        left.add(buildActionBar(), BorderLayout.NORTH);
-        left.add(buildConfigTabs(), BorderLayout.CENTER);
+        JPanel form = new JPanel(new BorderLayout(8, 8));
+        form.setBorder(BorderFactory.createEmptyBorder(8, 8, 4, 8));
+        form.add(buildActionBar(), BorderLayout.NORTH);
+        form.add(buildConfigTabs(), BorderLayout.CENTER);
 
         JTabbedPane rightTabs = new JTabbedPane();
         rightTabs.addTab("Progress", new JScrollPane(appLog));
@@ -243,13 +250,13 @@ public final class LootProbeGui {
                 }
             }
         });
-        JPanel right = new JPanel(new BorderLayout());
-        right.setBorder(BorderFactory.createEmptyBorder(8, 4, 8, 8));
-        right.add(rightTabs, BorderLayout.CENTER);
+        rightTabs.setPreferredSize(new Dimension(1200, 300));
+        JPanel logsAndMap = new JPanel(new BorderLayout());
+        logsAndMap.setBorder(BorderFactory.createEmptyBorder(4, 8, 8, 8));
+        logsAndMap.add(rightTabs, BorderLayout.CENTER);
 
-        JSplitPane split = new JSplitPane(JSplitPane.HORIZONTAL_SPLIT, left, right);
-        split.setResizeWeight(0.53);
-        frame.add(split, BorderLayout.CENTER);
+        frame.add(form, BorderLayout.CENTER);
+        frame.add(logsAndMap, BorderLayout.SOUTH);
 
         rebuildTargetSelectorsFromText();
         frame.pack();
@@ -465,6 +472,8 @@ public final class LootProbeGui {
         filterRow.add(resultDimensionFilter);
         filterRow.add(new JLabel("Structure"));
         filterRow.add(resultStructureFilter);
+        filterRow.add(new JLabel("Sort"));
+        filterRow.add(resultSort);
         topBar.add(filterRow);
         JPanel actions = new JPanel(new FlowLayout(FlowLayout.LEFT, 4, 0));
         JButton copyCoords = new JButton("Copy Coords");
@@ -634,6 +643,7 @@ public final class LootProbeGui {
         config.maxStructures = blankToNullInt(maxStructures.getText());
         config.paperPluginJar = Path.of(requireText(pluginJar, "Paper Plugin Jar"));
         config.autoDatapackStructures = autoDatapackStructures.isSelected();
+        config.useCubiomesStructureDiscovery = cubiomesStructures.isSelected();
         config.ultraLean = ultraLean.isSelected();
         config.reuseServerIfPossible = true;
         config.datapacks = activeDatapacks();
@@ -872,7 +882,7 @@ public final class LootProbeGui {
         ultraLean.setToolTipText("Apply runtime gamerule/perf settings for faster probing.");
         pluginJar.setToolTipText("Path to lootprobe Paper plugin jar used for chest extraction.");
         cubiomesMap.setToolTipText("Render map background from real Cubiomes biome generation.");
-        cubiomesStructures.setToolTipText("Overlay viable vanilla structure attempts from Cubiomes.");
+        cubiomesStructures.setToolTipText("Use Cubiomes for fast vanilla structure discovery; unsupported/datapack structures use server fallback.");
         mapMaxZoomOut.setToolTipText("Maximum visible world span at full zoom-out (default 15000 blocks).");
         mapIconScale.setToolTipText("Scale multiplier for map markers/icons (default 1.0).");
         datapackPath.setToolTipText("Optional single datapack zip/folder for this run.");
@@ -945,6 +955,7 @@ public final class LootProbeGui {
         itemSearch.getDocument().addDocumentListener(listener);
         resultDimensionFilter.addActionListener(e -> refreshStructureList());
         resultStructureFilter.addActionListener(e -> refreshStructureList());
+        resultSort.addActionListener(e -> refreshStructureList());
     }
 
     private void wireScanMapSync() {
@@ -1110,6 +1121,11 @@ public final class LootProbeGui {
                 continue;
             }
             filteredStructureIndexes.add(i);
+        }
+        Comparator<Integer> sortComparator = structureSortComparator(structures);
+        filteredStructureIndexes.sort(sortComparator);
+        for (int i : filteredStructureIndexes) {
+            WorldChestScanner.ScannedStructure s = structures.get(i);
             int chestCount = s.chests != null ? s.chests.size() : 0;
             int itemCount = 0;
             if (s.chests != null) {
@@ -1119,8 +1135,8 @@ public final class LootProbeGui {
             }
             String id = s.id != null ? s.id : "-";
             String dim = (s.dimension != null && !s.dimension.isBlank()) ? s.dimension : "-";
-            resultStructureModel.addElement(String.format("#%d  %s  [%s]  @ (%d,%d)  chests=%d  items=%d",
-                    i, id, dim, s.x, s.z, chestCount, itemCount));
+            resultStructureModel.addElement(String.format("#%d  %s  [%s]  @ (%d,%d)  spawners=%d  vaults=%d  ominous=%d  chests=%d  items=%d",
+                    i, id, dim, s.x, s.z, s.trialSpawnerCount(), s.vaultCount(), s.ominousVaultCount(), chestCount, itemCount));
         }
         resultSummary.setText(String.format("Structures: %d/%d   Chests: %d   Item stacks: %d",
                 filteredStructureIndexes.size(), structures.size(), totalChests, totalItems));
@@ -1137,6 +1153,40 @@ public final class LootProbeGui {
             }
         }
         updateMapSelectionFromUi();
+    }
+
+    private Comparator<Integer> structureSortComparator(List<WorldChestScanner.ScannedStructure> structures) {
+        Comparator<WorldChestScanner.ScannedStructure> comparator;
+        int selected = resultSort.getSelectedIndex();
+        if (selected == 1) {
+            comparator = Comparator.comparingInt(WorldChestScanner.ScannedStructure::vaultCount).reversed()
+                    .thenComparing(Comparator.comparingInt(WorldChestScanner.ScannedStructure::ominousVaultCount).reversed())
+                    .thenComparing(Comparator.comparingInt(WorldChestScanner.ScannedStructure::trialSpawnerCount).reversed());
+        } else if (selected == 2) {
+            comparator = Comparator.comparingInt(WorldChestScanner.ScannedStructure::ominousVaultCount).reversed()
+                    .thenComparing(Comparator.comparingInt(WorldChestScanner.ScannedStructure::vaultCount).reversed())
+                    .thenComparing(Comparator.comparingInt(WorldChestScanner.ScannedStructure::trialSpawnerCount).reversed());
+        } else if (selected == 3) {
+            comparator = Comparator.comparingInt((WorldChestScanner.ScannedStructure s) -> s.chests != null ? s.chests.size() : 0).reversed()
+                    .thenComparing(Comparator.comparingInt(this::itemCount).reversed());
+        } else {
+            comparator = Comparator.comparingInt(WorldChestScanner.ScannedStructure::trialSpawnerCount).reversed()
+                    .thenComparing(Comparator.comparingInt(WorldChestScanner.ScannedStructure::vaultCount).reversed())
+                    .thenComparing(Comparator.comparingInt(WorldChestScanner.ScannedStructure::ominousVaultCount).reversed());
+        }
+        return Comparator.comparing((Integer index) -> structures.get(index), comparator)
+                .thenComparingInt(index -> structures.get(index).x)
+                .thenComparingInt(index -> structures.get(index).z);
+    }
+
+    private int itemCount(WorldChestScanner.ScannedStructure structure) {
+        int count = 0;
+        if (structure != null && structure.chests != null) {
+            for (WorldChestScanner.ChestData chest : structure.chests) {
+                count += chest != null && chest.items != null ? chest.items.size() : 0;
+            }
+        }
+        return count;
     }
 
     private void refreshChestList() {

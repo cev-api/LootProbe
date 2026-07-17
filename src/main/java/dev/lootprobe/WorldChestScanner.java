@@ -65,6 +65,9 @@ public final class WorldChestScanner {
                 extractStatusReadTimeoutMs,
                 maxStructures,
                 List.of(),
+                false,
+                null,
+                0L,
                 null
         );
     }
@@ -88,6 +91,9 @@ public final class WorldChestScanner {
             int extractStatusReadTimeoutMs,
             Integer maxStructures,
             List<ScannedStructure> resumeStructures,
+            boolean useCubiomesStructureDiscovery,
+            String mcVersion,
+            long seed,
             ProgressPrinter.ProgressListener progressListener
     ) throws Exception {
         if (structureTargets == null || structureTargets.isEmpty()) {
@@ -113,20 +119,43 @@ public final class WorldChestScanner {
             }
         } else {
             starts = new ArrayList<>();
+            CubiomesBridge cubiomes = new CubiomesBridge();
+            boolean cubiomesReady = useCubiomesStructureDiscovery
+                    && cubiomes.ensureInitialized("cubiomes_bridge.dll", "cubiomes.dll");
+            if (useCubiomesStructureDiscovery && !cubiomesReady && locateProgress != null) {
+                locateProgress.info("scan: Cubiomes unavailable; using server discovery fallback: " + cubiomes.getLastError());
+            }
             for (Map.Entry<String, List<String>> entry : targetsByDimension.entrySet()) {
                 String dimension = entry.getKey();
                 List<String> structureFilter = entry.getValue();
-                List<StructureStart> startsForDim = List.of();
-                int pluginWorkUnits = samplePoints.size() * structureFilter.size();
-                boolean hasVillage = structureFilter.stream()
+                List<String> cubiomesFilters = cubiomesReady
+                        ? structureFilter.stream().filter(id -> cubiomes.supportsStructure(id, dimension)).toList()
+                        : List.of();
+                List<String> unresolvedFilters = structureFilter.stream()
+                        .filter(id -> !cubiomesFilters.contains(id))
+                        .toList();
+                List<StructureStart> startsForDim = cubiomesReady
+                        ? discoverStructureStartsViaCubiomes(cubiomes, seed, mcVersion, dimension, centerX, centerZ, radius, cubiomesFilters, locateProgress)
+                        : List.of();
+                if (cubiomesReady && unresolvedFilters.isEmpty()) {
+                    if (locateProgress != null) {
+                        locateProgress.info("scan: Cubiomes discovered " + startsForDim.size() + " structures in " + dimension);
+                    }
+                    starts.addAll(startsForDim);
+                    continue;
+                }
+                List<String> discoveryFilters = unresolvedFilters.isEmpty() ? structureFilter : unresolvedFilters;
+                List<StructureStart> serverStartsForDim = List.of();
+                int pluginWorkUnits = samplePoints.size() * discoveryFilters.size();
+                boolean hasVillage = discoveryFilters.stream()
                         .filter(id -> id != null)
                         .map(id -> id.trim().toLowerCase())
                         .anyMatch("minecraft:village"::equals);
                 boolean tryPluginDiscovery = !hasVillage
-                        && shouldUsePluginDiscovery(structureFilter.size(), pluginWorkUnits);
+                        && shouldUsePluginDiscovery(discoveryFilters.size(), pluginWorkUnits);
                 if (tryPluginDiscovery) {
-                    startsForDim = discoverStructureStartsViaPlugin(
-                            rcon, runDir, dimension, centerX, centerZ, radius, structureFilter, locateStep
+                        serverStartsForDim = discoverStructureStartsViaPlugin(
+                            rcon, runDir, dimension, centerX, centerZ, radius, discoveryFilters, locateStep
                     );
                 } else if (locateProgress != null) {
                     if (hasVillage) {
@@ -136,15 +165,16 @@ public final class WorldChestScanner {
                                 + " locate operations) in " + dimension + "; using sampled /locate mode...");
                     }
                 }
-                if (startsForDim.isEmpty()) {
+                if (serverStartsForDim.isEmpty() && !discoveryFilters.isEmpty()) {
                     if (locateProgress != null) {
                         locateProgress.info("scan: plugin discovery unavailable/empty in " + dimension + ", falling back to /locate samples...");
                     }
-                    startsForDim = discoverStructureStarts(
-                            rcon, dimension, centerX, centerZ, radius, structureFilter, samplePoints, locateProgress
+                    serverStartsForDim = discoverStructureStarts(
+                            rcon, dimension, centerX, centerZ, radius, discoveryFilters, samplePoints, locateProgress
                     );
                 }
                 starts.addAll(startsForDim);
+                starts.addAll(serverStartsForDim);
             }
             saveDiscoveryCache(discoveryCacheFile, starts);
         }
@@ -657,6 +687,51 @@ public final class WorldChestScanner {
         return out;
     }
 
+    private static List<StructureStart> discoverStructureStartsViaCubiomes(
+            CubiomesBridge cubiomes,
+            long seed,
+            String mcVersion,
+            String dimension,
+            int centerX,
+            int centerZ,
+            int radius,
+            List<String> structureFilter,
+            ProgressPrinter progress
+    ) {
+        if (cubiomes == null || structureFilter == null || structureFilter.isEmpty()) {
+            return List.of();
+        }
+        List<CubiomesBridge.StructurePoint> points = cubiomes.generateStructures(
+                seed, mcVersion, dimension,
+                centerX - radius, centerZ - radius,
+                centerX + radius, centerZ + radius,
+                structureFilter, 100_000
+        );
+        List<StructureStart> out = new ArrayList<>(points.size());
+        Set<String> seen = new HashSet<>();
+        for (CubiomesBridge.StructurePoint point : points) {
+            String id = cubiomes.structureIdForType(point.type(), dimension);
+            if (id == null || dist2(centerX, centerZ, point.x(), point.z()) > (long) radius * radius) {
+                continue;
+            }
+            String key = id + "|" + (point.x() >> 4) + "|" + (point.z() >> 4);
+            if (!seen.add(key)) {
+                continue;
+            }
+            StructureStart start = new StructureStart();
+            start.id = id;
+            start.dimension = dimension;
+            start.x = point.x();
+            start.y = 0;
+            start.z = point.z();
+            out.add(start);
+        }
+        if (progress != null) {
+            progress.info("scan: Cubiomes found " + out.size() + " candidate structures in " + dimension);
+        }
+        return out;
+    }
+
     private static void discoverVillageVariants(
             RconClient rcon,
             String dimension,
@@ -886,6 +961,34 @@ public final class WorldChestScanner {
         public String error;
         public ChunkStats chunkStats = new ChunkStats();
         public List<ChestData> chests = new ArrayList<>();
+
+        public int trialSpawnerCount() {
+            return countBlocks("trial_spawner", false);
+        }
+
+        public int vaultCount() {
+            return countBlocks("vault", false);
+        }
+
+        public int ominousVaultCount() {
+            return countBlocks("vault", true);
+        }
+
+        private int countBlocks(String blockSuffix, boolean ominousOnly) {
+            int count = 0;
+            if (chests != null) {
+                for (ChestData chest : chests) {
+                    if (chest == null || chest.blockId == null || !chest.blockId.endsWith(blockSuffix)) {
+                        continue;
+                    }
+                    if (blockSuffix.equals("vault") && chest.ominous != ominousOnly) {
+                        continue;
+                    }
+                    count++;
+                }
+            }
+            return count;
+        }
     }
 
     public static final class PluginStructureDump {
@@ -927,6 +1030,7 @@ public final class WorldChestScanner {
         public int y;
         public int z;
         public String blockId;
+        public boolean ominous;
         public String lootTable;
         public Long lootTableSeed;
         public String rawLootCommandResponse;

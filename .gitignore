@@ -1,5 +1,9 @@
 target/
 **/target/
+.gradle/
+**/.gradle/
+.vscode/
+**/.vscode/
 .idea/
 *.iml
 probe-result.json

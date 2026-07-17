@@ -50,6 +50,16 @@ This is one of Loot Probe's biggest differentiators:
 
 Meaning: if your server pack changes chest tables (or adds structure content paths), Loot Probe can report what actually exists there, not just vanilla expectations.
 
+## Feature: Trial Chamber Population Scanning
+
+When scanning `minecraft:trial_chambers`, Loot Probe also records the chamber's generated trial chamber blocks and shows per-structure totals for:
+
+- Trial spawners
+- Regular vaults
+- Ominous vaults
+
+The GUI Results tab displays these counts beside every discovered chamber and defaults to sorting chambers by the highest number of trial spawners, followed by vaults and ominous vaults. Alternate sorting options are available for vault-first, ominous-vault-first, or chest/item totals. The terminal `browse` command includes the same counts in its structure summary.
+
 ## Practical In-Game Real Use
 
 Coupled with [Wurst7-CevAPI](https://github.com/cev-api/Wurst7-CevAPI) and its LootSearch hack you're able to find, search and waypoint every chest you've scanned sorted by nearest to the player.
@@ -136,6 +146,7 @@ If `cubiomes.dll` is missing or incompatible, native map/preview features fail a
 - Seed scan by radius (`center x/z + radius`)
 - Structure targeting per dimension
 - Chest extraction with item stacks
+- Trial chamber population counts for spawners, vaults, and ominous vaults
 - Datapack loot extraction (`--datapack`) with datapack structure discovery (`--auto-datapack-structures`)
 - GUI with interactive map, selection sync, zoom/pan, icon scale
 - CLI modes for automation
@@ -257,7 +268,8 @@ java -jar target\lootprobe-0.1.0.jar gui
 
 GUI notes:
 
-- `Results` tab is in the same left-side tab strip as `Core / Scan / Targets`
+- `Results` tab is in the main form tab strip alongside `Core / Scan / Targets`
+- `Progress`, `Server Log`, and `Map` are available in tabs in the bottom panel
 - `Map Icon Scale` is in `Scan` settings
 - Datapack extraction is configured in the `Datapack` field on the run page; use `Auto include datapack structures` in `Scan` for automatic structure target expansion
 

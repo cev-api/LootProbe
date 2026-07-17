@@ -12,6 +12,8 @@ import org.bukkit.World;
 import org.bukkit.World.Environment;
 import org.bukkit.block.BlockState;
 import org.bukkit.block.Container;
+import org.bukkit.block.TrialSpawner;
+import org.bukkit.block.Vault;
 import org.bukkit.command.Command;
 import org.bukkit.command.CommandExecutor;
 import org.bukkit.command.CommandSender;
@@ -287,9 +289,6 @@ public final class LootProbePaperPlugin extends JavaPlugin implements CommandExe
         world.getBlockAt(chunkX * 16 + 8, world.getMinHeight() + 1, chunkZ * 16 + 8).getType();
 
         for (BlockState state : chunk.getTileEntities()) {
-            if (!(state instanceof Container container)) {
-                continue;
-            }
             Location loc = state.getLocation();
             if (dist2(job.centerX, job.centerZ, loc.getBlockX(), loc.getBlockZ()) > (long) CHEST_ATTACH_RADIUS * CHEST_ATTACH_RADIUS) {
                 continue;
@@ -298,8 +297,18 @@ public final class LootProbePaperPlugin extends JavaPlugin implements CommandExe
             chest.x = loc.getBlockX();
             chest.y = loc.getBlockY();
             chest.z = loc.getBlockZ();
-            chest.blockId = key(container.getType());
-            if (!isTargetContainer(chest.blockId)) {
+            chest.blockId = key(state.getType());
+            if (!isTargetContainer(chest.blockId)
+                    && !(state instanceof TrialSpawner)
+                    && !(state instanceof Vault)) {
+                continue;
+            }
+
+            chest.ominous = (state instanceof TrialSpawner trialSpawner && trialSpawner.isOminous())
+                    || (state.getBlockData() instanceof org.bukkit.block.data.type.Vault vaultData && vaultData.isOminous());
+
+            if (!(state instanceof Container container)) {
+                job.dump.chests.add(chest);
                 continue;
             }
 
@@ -744,6 +753,7 @@ public final class LootProbePaperPlugin extends JavaPlugin implements CommandExe
         public int y;
         public int z;
         public String blockId;
+        public boolean ominous;
         public String lootTable;
         public Long lootTableSeed;
         public String rawLootCommandResponse;

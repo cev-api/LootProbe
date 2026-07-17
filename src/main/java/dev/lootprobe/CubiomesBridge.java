@@ -3,6 +3,7 @@ package dev.lootprobe;
 import com.sun.jna.Library;
 import com.sun.jna.Native;
 
+import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.LinkedHashMap;
@@ -71,9 +72,19 @@ public final class CubiomesBridge {
             return true;
         }
         try {
-            String libName = stripLibrarySuffix(Path.of(bridgeDllPath).toAbsolutePath().toString());
+            Path bridgePath = resolveNativeLibrary(bridgeDllPath);
+            Path cubiomesPath = resolveNativeLibrary(cubiomesDllPath);
+            if (bridgePath == null) {
+                lastError = "Bridge DLL not found: " + bridgeDllPath;
+                return false;
+            }
+            if (cubiomesPath == null) {
+                lastError = "Cubiomes DLL not found: " + cubiomesDllPath;
+                return false;
+            }
+            String libName = stripLibrarySuffix(bridgePath.toString());
             bridge = Native.load(libName, NativeBridge.class);
-            int rc = bridge.lp_init(cubiomesDllPath != null && !cubiomesDllPath.isBlank() ? cubiomesDllPath : null);
+            int rc = bridge.lp_init(cubiomesPath.toString());
             if (rc != 0) {
                 lastError = safeError();
                 return false;
@@ -136,6 +147,30 @@ public final class CubiomesBridge {
             points.add(new StructurePoint(out[o], out[o + 1], out[o + 2]));
         }
         return points;
+    }
+
+    public String structureIdForType(int type, String dimension) {
+        Map<String, Integer> source = switch (mapDimension(dimension)) {
+            case DIM_NETHER -> NETHER_STRUCTS;
+            case DIM_END -> END_STRUCTS;
+            default -> OVERWORLD_STRUCTS;
+        };
+        for (Map.Entry<String, Integer> entry : source.entrySet()) {
+            if (entry.getValue() == type) {
+                return entry.getKey();
+            }
+        }
+        return null;
+    }
+
+    public boolean supportsStructure(String structureId, String dimension) {
+        int dim = mapDimension(dimension);
+        Map<String, Integer> source = switch (dim) {
+            case DIM_NETHER -> NETHER_STRUCTS;
+            case DIM_END -> END_STRUCTS;
+            default -> OVERWORLD_STRUCTS;
+        };
+        return source.containsKey(structureId);
     }
 
     private String safeError() {
@@ -214,5 +249,44 @@ public final class CubiomesBridge {
             p = p.substring(0, p.length() - 4);
         }
         return p;
+    }
+
+    private static Path resolveNativeLibrary(String requested) {
+        if (requested == null || requested.isBlank()) {
+            return null;
+        }
+        Path raw = Path.of(requested);
+        List<Path> candidates = new ArrayList<>();
+        if (raw.isAbsolute()) {
+            candidates.add(raw);
+        } else {
+            Path current = Path.of("").toAbsolutePath().normalize();
+            candidates.add(current.resolve(raw));
+            Path cursor = current;
+            for (int i = 0; i < 6 && cursor != null; i++) {
+                candidates.add(cursor.resolve("test").resolve("runtime").resolve(raw.getFileName()));
+                candidates.add(cursor.resolve(raw.getFileName()));
+                cursor = cursor.getParent();
+            }
+            try {
+                Path codeSource = Path.of(CubiomesBridge.class.getProtectionDomain()
+                        .getCodeSource().getLocation().toURI());
+                if (Files.isRegularFile(codeSource)) {
+                    codeSource = codeSource.getParent();
+                }
+                candidates.add(codeSource.resolve(raw));
+                candidates.add(codeSource.resolve("test").resolve("runtime").resolve(raw.getFileName()));
+                if (codeSource.getParent() != null) {
+                    candidates.add(codeSource.getParent().resolve("test").resolve("runtime").resolve(raw.getFileName()));
+                }
+            } catch (Exception ignored) {
+            }
+        }
+        for (Path candidate : candidates) {
+            if (candidate != null && Files.isRegularFile(candidate)) {
+                return candidate.toAbsolutePath().normalize();
+            }
+        }
+        return null;
     }
 }

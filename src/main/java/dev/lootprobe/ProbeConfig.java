@@ -26,6 +26,7 @@ public final class ProbeConfig {
     public String scanDimension = "minecraft:overworld";
     public Path paperPluginJar;
     public boolean autoDatapackStructures = true;
+    public boolean useCubiomesStructureDiscovery = true;
     public int locateStep = 768;
     public int extractChunkRadius = 5;
     public boolean extractParallelChunks = true;

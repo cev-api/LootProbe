@@ -108,7 +108,7 @@ public final class BrowseCommand implements Callable<Integer> {
             System.out.println("No scanned structures in regionScan.");
             return;
         }
-        System.out.printf("%-5s %-30s %-18s %-8s %-8s%n", "Idx", "Structure", "Coords", "Chests", "Items");
+        System.out.printf("%-5s %-30s %-18s %-9s %-9s %-9s %-8s %-8s%n", "Idx", "Structure", "Coords", "Spawners", "Vaults", "Ominous", "Chests", "Items");
         for (int i = 0; i < structures.size(); i++) {
             WorldChestScanner.ScannedStructure s = structures.get(i);
             int itemCount = 0;
@@ -119,7 +119,8 @@ public final class BrowseCommand implements Callable<Integer> {
             }
             String coords = s.x + "," + s.y + "," + s.z;
             int chests = s.chests != null ? s.chests.size() : 0;
-            System.out.printf("%-5d %-30s %-18s %-8d %-8d%n", i, trim(s.id, 29), coords, chests, itemCount);
+            System.out.printf("%-5d %-30s %-18s %-9d %-9d %-9d %-8d %-8d%n", i, trim(s.id, 29), coords,
+                    s.trialSpawnerCount(), s.vaultCount(), s.ominousVaultCount(), chests, itemCount);
         }
     }
 
